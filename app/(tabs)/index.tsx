@@ -1,70 +1,87 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React from "react";
+import { FlatList, ImageSourcePropType } from "react-native";
+import Container from "@/components/container/Container";
+import { DataButtonMood, TitleMoodName } from "@/constants/Data";
+import ListChooseMood from "@/components/sections/ListChooseMood";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { useAsyncStorage, useGlobalRefetch } from "@/hooks/useAsyncStorage";
+import { isIos } from "@/utils";
+import Loader from "@/components/ui/Loader";
+import Error from "@/components/ui/Error";
 
-export default function HomeScreen() {
+export type DataMood = {
+  name: string;
+  count: number;
+  color: string;
+  icon: ImageSourcePropType;
+  timestamp: Date;
+  percentage?: number;
+};
+
+export default function Home() {
+  const [selectedMood, setSelectedMood] = React.useState<TitleMoodName | null>(
+    null
+  );
+  const {
+    data: dataMood,
+    setData,
+    error,
+  } = useAsyncStorage<DataMood>({ key: "mood-data" });
+
+  const { refetchKey } = useGlobalRefetch();
+
+  const handleAction = async (item: DataButtonMood) => {
+    setSelectedMood(item.title);
+
+    try {
+      let updatedMoods: DataMood[] = [...dataMood];
+
+      const existingMoodIndex = updatedMoods.findIndex(
+        (mood) => mood.name === item.title
+      );
+
+      if (existingMoodIndex !== -1) {
+        updatedMoods[existingMoodIndex] = {
+          ...updatedMoods[existingMoodIndex],
+          count: updatedMoods[existingMoodIndex].count + 1,
+        };
+      } else {
+        updatedMoods.push({
+          name: item.title,
+          count: 1,
+          color: item.color,
+          icon: item.icon,
+          timestamp: new Date(),
+        });
+      }
+
+      setData(updatedMoods);
+
+      refetchKey("mood-data");
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  if (error) return <Error />;
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <Container
+      title="How are you feeling right now?"
+      align="left"
+      gap={isIos() ? 10 : 5}
+    >
+      <FlatList
+        data={DataButtonMood}
+        keyExtractor={(item) => item.title}
+        renderItem={({ item }) => (
+          <ListChooseMood
+            item={item}
+            handleAction={handleAction}
+            selectedMood={selectedMood}
+          />
+        )}
+      />
+    </Container>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
